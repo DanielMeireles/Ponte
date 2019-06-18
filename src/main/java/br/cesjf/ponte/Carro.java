@@ -27,7 +27,6 @@ public class Carro extends Thread {
                 // Verificação do estado
                 switch(estado){
                     
-                    // OK
                     case CHEGOU:
                         // Exclusão mútua para manter a fila em ordem (Enquanto está chegando não ocorrem verificação na ponte) - Início
                         Ponte.mutex.acquire();
@@ -58,7 +57,7 @@ public class Carro extends Thread {
                     
                     case ATRAVESSANDO:
                         // Impressão
-                        System.out.println("O carro "+this.id+" está atravessando do lado "+this.lado+" da ponte para o outro lado");
+                        System.out.println("O carro "+this.id+" está atravessando do lado "+this.lado+" da ponte para o lado "+(this.lado.equals("A")?"B":"A"));
                         // Subtrai do contador
                         Ponte.contador--;
                         // Exclusão mútua para manter a fila em ordem (Enquanto está mudando de estado para atravessando não ocorrem verificação na ponte) - Fim
