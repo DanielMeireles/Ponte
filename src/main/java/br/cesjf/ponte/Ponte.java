@@ -2,79 +2,80 @@ package br.cesjf.ponte;
 
 import java.util.concurrent.Semaphore;
 
-public class Ponte {
+public class Ponte extends Thread {
     
-    // Declação de variáveis e objetos
     // Quantidade de carros, que devem atravessar se estiverem aguardando
     public static final int quantidade = 5;
     // Semáforo para uso de exclusão mútua dos carros que estão atravessando
-    public static final Semaphore atravessando = new Semaphore(1);
-    // Semáforo para uso de exclusão mútua dos carros que estão chegando
-    public static final Semaphore chegando = new Semaphore(1);
+    public static final Semaphore atravessando = new Semaphore(0);
     // Semáforo para controle dos carros aguardando do lado A
     public static final Semaphore aguardandoA = new Semaphore(0);
     // Semáforo para controle dos carros aguardando do lado B
     public static final Semaphore aguardandoB = new Semaphore(0);
+    // Controle para manter a fila em ordem
+    public static final Semaphore mutex = new Semaphore(1);
     // Variáveis para controle de qual lado está sendo permitida a passagem
     public static String lado = "A";
     public static int contador = quantidade;
     
-    public static void main(String[] args) {
+    @Override
+    public void run() {
         
-        // Contador utilizado como id do carro
-        int i = 1;
-        
-         // While para a criação dos carros
-        while(true) {
-            
-            // Gera número aleatório para decidir se o carro chegará no lado A ou B
-            long aux = Math.round(Math.random() * 100);
-            
-            // Se o número for par o carro será gerado no lado A se for ímpar será gerado no lado B
-            if(aux % 2 == 0){
-                Carro carro = new Carro(i, "A");
-                carro.start();
-            } else {
-                Carro carro = new Carro(i, "B");
-                carro.start();
-            }
-            
-            // Adiciona no contador
-            i++;
-            
-            // Executa o método que dá uma pausa entre as criações de carros
-            pausa();
-        }
-
-    }
-    
-    // Definição do tempo entre a geração dos carros
-    private static void pausa() {
         try {
-            Thread.sleep((long) Math.round(Math.random() * 2500));
-        } catch (InterruptedException e) {}
-    }
-    
-    // Método que executa o controle de qual lado pode atravessar
-    public static void controle() {
-        // Caso o contador chegue ao valor 0, ou seja, a quantidade foi atingida, alterna o lado que tem permissão de atravessar
-        if(Ponte.contador <= 0) {
-            if(Ponte.lado.equals("A")) {
-                Ponte.lado = "B";
-                Ponte.contador = Ponte.quantidade;
-            } else {
-                Ponte.lado = "A";
-                Ponte.contador = Ponte.quantidade;
+            
+            // Impressão
+            System.out.println("Ponte iniciada");
+
+            // Loop da ponte
+            while(true) {
+
+                // Exclusão mútua para manter a fila em ordem (Enquanto faz a verificação não ocorrem chegadas) - Início
+                Ponte.mutex.acquire();
+                
+                // Alterna o lado e reseta a quantidade quando o contador está zerado
+                if(Ponte.contador == 0) {
+                    if(Ponte.lado.equals("A")) {
+                        Ponte.lado = "B";
+                        Ponte.contador = quantidade;
+                    } else {
+                        Ponte.lado = "A";
+                        Ponte.contador = quantidade;
+                    }
+                }
+
+                // Alterna o lado enquanto não existe fila de carros
+                if(Ponte.lado.equals("A") && Ponte.aguardandoA.getQueueLength() == 0) {
+                    if(Ponte.aguardandoB.getQueueLength() > 0) {
+                        lado = "B";
+                        contador = quantidade;
+                    }
+                } else if (Ponte.lado.equals("B") && Ponte.aguardandoB.getQueueLength() == 0) {
+                    if(Ponte.aguardandoB.getQueueLength() > 0) {
+                        lado = "A";
+                        contador = quantidade;
+                    }
+                }
+                
+                // Exclusão mútua para manter a fila em ordem (Enquanto faz a verificação não ocorrem chegadas) - Fim
+                Ponte.mutex.release();
+
+                // Verifica se tem algum carro na fila e faz a liberação para que ele atravesse
+                if(Ponte.lado.equals("A") && Ponte.aguardandoA.getQueueLength() > 0) {
+                    // Semáforo de carros aguardando do lado A - Libera
+                    Ponte.aguardandoA.release();
+                    // Excusão mútua de atravessando (Ficará parado aqui até que o carro termine de atravessar) - Início
+                    Ponte.atravessando.acquire();
+                } else if(Ponte.lado.equals("B") && Ponte.aguardandoB.getQueueLength() > 0) {
+                    // Semáforo de carros aguardando do lado B - Libera
+                    Ponte.aguardandoB.release();
+                    // Excusão mútua de atravessando (Ficará parado aqui até que o carro termine de atravessar) - Início
+                    Ponte.atravessando.acquire();
+                }
+                
             }
-        }
-        // Caso o lado permitido não tenha carros a atravessar, mas do outro lado tenha, alterna o lado
-        if(Ponte.lado.equals("A") && Ponte.aguardandoA.getQueueLength() == 0 && Ponte.aguardandoB.getQueueLength() > 0) {
-            Ponte.lado = "B";
-            Ponte.contador = Ponte.quantidade;
-        } else if(Ponte.lado.equals("B") && Ponte.aguardandoB.getQueueLength() == 0 && Ponte.aguardandoA.getQueueLength() > 0) {
-            Ponte.lado = "A";
-            Ponte.contador = Ponte.quantidade;
-        }
+            
+        } catch (InterruptedException ex) {}
+        
     }
     
 }

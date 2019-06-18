@@ -17,74 +17,43 @@ public class Carro extends Thread {
     @Override
     public void run() {
         try {
+            
             // Variável de controle de quando deve ser finalizada a Thread
             boolean ativo = true;
-            // Mantém em execução enquanto a Thread não finaliza
+            
+            // Mantém a Thread em execução enquanto a variável ativo for verdadeira
             while(ativo){
-                // Verifica o estado
+                
+                // Verificação do estado
                 switch(estado){
+                    
+                    // OK
                     case CHEGOU:
-                        // Exclusão mútua chegando - Início
-                        Ponte.chegando.acquire();
+                        // Exclusão mútua para manter a fila em ordem (Enquanto está chegando não ocorrem verificação na ponte) - Início
+                        Ponte.mutex.acquire();
                         // Impressão
                         System.out.println("O carro "+this.id+" chegou ao lado "+this.lado+" da ponte");
-                        // Verificação do lado da ponte
-                        if(this.lado.equals("A")) {
-                            // Caso não exista carro atravessando nem aguardando libera a travessia, caso contrário deve aguardar
-                            if(Ponte.aguardandoA.getQueueLength() == 0 && Ponte.aguardandoB.getQueueLength() == 0 && Ponte.atravessando.getQueueLength() == 0) {
-                                // Altera o estado
-                                this.estado = Estado.AGUARDANDO;
-                                // Altera o lado
-                                Ponte.lado = "A";
-                                // Reseta o contador
-                                Ponte.contador = Ponte.quantidade;
-                                // Libera a passagem do carro
-                                Ponte.aguardandoA.release();
-                            } else {
-                                // Altera o estado
-                                this.estado = Estado.AGUARDANDO;
-                                // Impressão
-                                System.out.println("O carro "+this.id+" está aguardando sua vez no lado "+this.lado+" da ponte");
-                            }
-                        } else {
-                            // Caso não exista carro atravessando nem aguardando libera a travessia, caso contrário deve aguardar
-                            if(Ponte.aguardandoA.getQueueLength() == 0 && Ponte.aguardandoB.getQueueLength() == 0 && Ponte.atravessando.getQueueLength() == 0) {
-                                // Altera o estado
-                                this.estado = Estado.AGUARDANDO;
-                                // Altera o lado
-                                Ponte.lado = "B";
-                                // Reseta o contador
-                                Ponte.contador = Ponte.quantidade;
-                                // Libera a passagem do carro
-                                Ponte.aguardandoB.release();
-                            } else {
-                                // Altera o estado
-                                this.estado = Estado.AGUARDANDO;
-                                // Impressão
-                                System.out.println("O carro "+this.id+" está aguardando sua vez no lado "+this.lado+" da ponte");
-                            }
-                        }
-                        // Exclusão mútua chegando - Fim
-                        Ponte.chegando.release();
+                        // Altera o estado para aguardando
+                        this.estado = Estado.AGUARDANDO;
                         break;
                         
                     case AGUARDANDO:
-                        // Verificação do lado da ponte
+                        // Impressão
+                        System.out.println("O carro "+this.id+" está aguardando sua vez no lado "+this.lado+" da ponte");
+                        // Exclusão mútua para manter a fila em ordem (Enquanto está chegando não ocorre verificação na ponte) - Fim
+                        Ponte.mutex.release();
+                        // Verificação do lado da ponte e acessa o semáforo
                         if(this.lado.equals("A")){
                             // Acessa o semáforo dos carros aguardando do lado A
                             Ponte.aguardandoA.acquire();
-                            // Exclusão mútua atravessando - Início
-                            Ponte.atravessando.acquire();
-                            // Altera o estado
-                            this.estado = Estado.ATRAVESSANDO;
                         } else {
                             // Acessa o semáforo dos carros aguardando do lado B
                             Ponte.aguardandoB.acquire();
-                            // Exclusão mútua atravessando - Início
-                            Ponte.atravessando.acquire();
-                            // Altera o estado
-                            this.estado = Estado.ATRAVESSANDO;
                         }
+                        // Exclusão mútua para manter a fila em ordem (Enquanto está mudando de estado para atravessando não ocorrem verificação na ponte) - Início
+                        Ponte.mutex.acquire();
+                        // Altera o estado para atravessando
+                        this.estado = Estado.ATRAVESSANDO;
                         break;
                     
                     case ATRAVESSANDO:
@@ -92,24 +61,18 @@ public class Carro extends Thread {
                         System.out.println("O carro "+this.id+" está atravessando do lado "+this.lado+" da ponte para o outro lado");
                         // Subtrai do contador
                         Ponte.contador--;
+                        // Exclusão mútua para manter a fila em ordem (Enquanto está mudando de estado para atravessando não ocorrem verificação na ponte) - Fim
+                        Ponte.mutex.release();
                         // Executa o método que faz uma pausa para atravessar
                         atravessando();
-                        // Altera o estado
+                        // Altera o estado para terminou
                         this.estado = Estado.TERMINOU;
                         break;
                         
                     case TERMINOU:
                         // Impressão
                         System.out.println("O carro "+this.id+" atravessou do lado "+this.lado+" da ponte para o outro lado");
-                        // Exucuta o método que verifica se o lado deve ser alternado
-                        Ponte.controle();
-                        // Libera a passagem de mais um carro
-                        if(Ponte.lado.equals("A")) {
-                            Ponte.aguardandoA.release();
-                        } else {
-                            Ponte.aguardandoB.release();
-                        }
-                        // Exclusão mútua atravessando - Fim
+                        // Excusão mútua de atravessando (Libera a ponte para continuar a execução) - Fim
                         Ponte.atravessando.release();
                         // Finaliza a Thread
                         ativo = false;
