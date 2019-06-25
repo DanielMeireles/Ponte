@@ -50,7 +50,7 @@ public class Ponte extends Thread {
                         contador = quantidade;
                     }
                 } else if (Ponte.lado.equals("B") && Ponte.aguardandoB.getQueueLength() == 0) {
-                    if(Ponte.aguardandoB.getQueueLength() > 0) {
+                    if(Ponte.aguardandoA.getQueueLength() > 0) {
                         lado = "A";
                         contador = quantidade;
                     }
